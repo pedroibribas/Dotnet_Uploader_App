@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Components.Forms;
 
-namespace Uploader.Shared;
+namespace Uploader.Data.Services;
 
-public class FileHandler
+public class CreateFileService
 {
 
     private string StoragePath { get; set; }
@@ -10,19 +10,19 @@ public class FileHandler
 
     private readonly IBrowserFile File;
 
-    public FileHandler(IBrowserFile file)
+    public CreateFileService(IBrowserFile file)
     {
         File = file;
         StoragePath = "";
     }
 
-    public FileHandler StoreAt(string path)
+    public CreateFileService StoreAt(string path)
     {
         StoragePath = path;
         return this;
     }
 
-    public FileHandler LimitStoreTo(long maxAllowedSize)
+    public CreateFileService LimitStoreTo(long maxAllowedSize)
     {
         MaxAllowedSize = maxAllowedSize;
         return this;
