@@ -4,8 +4,8 @@ namespace Uploader.Data.Services;
 
 public class CreateFileService
 {
-
     private string StoragePath { get; set; }
+    private string DirectoryName { get; set; }
     private long MaxAllowedSize { get; set; }
 
     private readonly IBrowserFile File;
@@ -14,11 +14,18 @@ public class CreateFileService
     {
         File = file;
         StoragePath = "";
+        DirectoryName = "";
     }
 
     public CreateFileService StoreAt(string path)
     {
         StoragePath = path;
+        return this;
+    }
+
+    public CreateFileService InDirectory(string directoryName)
+    {
+        DirectoryName = directoryName;
         return this;
     }
 
@@ -28,26 +35,31 @@ public class CreateFileService
         return this;
     }
 
-    public async void Create()
+    public async Task<string> Create()
     {
         if (string.IsNullOrEmpty(StoragePath))
             throw new InvalidOperationException(
                 $"Erro ao criar arquivo: nenhum caminho da storage de arquivos.");
 
-        Directory.CreateDirectory(StoragePath);
-        string filePath = FilePath(StoragePath);
+        string newFileName = RandomizedFileName();
+        CreateDirectory();
 
-        await using FileStream fs = new(filePath, FileMode.Create);
+        await using FileStream fs = new(FilePath(newFileName), FileMode.Create);
         await File.OpenReadStream(MaxAllowedSize)
-                    .CopyToAsync(fs);
+                  .CopyToAsync(fs);
+
+        return RelativePath(newFileName);
     }
     
     private string RandomizedFileName() => Path.ChangeExtension(
             Path.GetRandomFileName(), 
             Path.GetExtension(File.Name));
-
-    private string FilePath(string directoryPath) =>
-        Path.Combine(directoryPath, RandomizedFileName());
+    private void CreateDirectory() => Directory.CreateDirectory(
+            Path.Combine(StoragePath, DirectoryName));
+    private string FilePath(string fileName) =>
+        Path.Combine(StoragePath, DirectoryName, fileName);
+    private string RelativePath(string fileName) =>
+        Path.Combine(DirectoryName, fileName);
 }
 
 

@@ -1,59 +1,113 @@
-﻿@using Uploader.Data.Services;
-@inject FileService FileService
+﻿@using Uploader.Data.Models.Entities
+@using Uploader.Data.Services
+@using Data.Models.Dtos
 
-<InputFile
-    OnChange="@LoadFiles"
-    multiple 
-    accept=@allowedExtensions
-    class="form-control"
-/>
+@inject UploaderService UploaderService
+
+<EditForm OnValidSubmit="SubmitForm" Model="newCustomer">
+    <div>
+        <label for="firstName">Nome: </label>
+        <InputText id="firstName" class="form-control" @bind-Value="newCustomer.FirstName" />
+    </div>
+    <div>
+        <label for="lastName">Sobrenome: </label>
+        <InputText id="lastName" class="form-control" @bind-Value="newCustomer.LastName" />
+    </div>
+    <div>
+        <label for="profilePicture">Foto do perfil: </label>
+        <InputFile
+            class="form-control"
+            OnChange="@LoadFile"
+            accept=@allowedExtensions />
+    </div>
+    <button type="submit" class="btn btn-primary mt-3">
+        Criar cliente
+    </button>
+</EditForm>
 
 @code {
-    private string allowedExtensions = ".png,.jpg,.jpeg";
-    private int maxAllowedFilesAmount = 2;
+    private Customer newCustomer = new();
+    private IBrowserFile? UserPicture;
+    private int maxAllowedFilesAmount = 1;
     private long maxAllowedFileSize = (1024 * 1024) / 2;
+    private string allowedExtensions = ".png,.jpg,.jpeg";
     public List<string> inputErrors { get; set; } = new();
-    private bool isFormValid = false;
 
-    private void LoadFiles(InputFileChangeEventArgs eventArgs)
+    private void LoadFile(InputFileChangeEventArgs eventArgs)
     {
-        VerifyErrors(eventArgs);
-        if (inputErrors.Count > 0)
-            isFormValid = true;
-    }
-    
-    private async void SubmitFiles(InputFileChangeEventArgs eventArgs)
-    {
-        var files = eventArgs.GetMultipleFiles(maxAllowedFilesAmount);
-        foreach (var file in files)
+        if (IsUserPictureInputValid(eventArgs))
         {
-            await FileService.Create(file: file, userName: "ribas");
+            UserPicture = eventArgs.File;
         }
     }
-    
-    private void VerifyErrors(InputFileChangeEventArgs eventArgs)
+
+    private bool IsUserPictureInputValid(InputFileChangeEventArgs eventArgs)
     {
         inputErrors.Clear();
 
-        if (EnsureMaxAllowedFilesAmount(eventArgs))
+        if (!EnsureMaxAllowedFilesAmount(eventArgs))
         {
-            inputErrors.Add($"Máximo de arquivos permitidos para envio são {maxAllowedFilesAmount}.");
-            return;
+            inputErrors.Add($"Apenas {maxAllowedFilesAmount} arquivo é permitido para envio.");
+            return false;
         }
 
-        var files = eventArgs.GetMultipleFiles(maxAllowedFilesAmount);
-        foreach (IBrowserFile file in files)
+        if (!EnsureMaxFileSize(eventArgs))
         {
-            if (EnsureMaxFileSize(eventArgs))
-                inputErrors.Add($"O arquivo {file.Name} tem {file.Size}, mas o máximo permitido é de {maxAllowedFileSize}.");
+            inputErrors.Add(
+                $"{eventArgs.File.Name} tem {eventArgs.File.Size}, mas o máximo permitido é de {maxAllowedFileSize}.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task SubmitForm()
+    {
+        if (IsFormValid())
+        {
+            CreateUserNewFileDto dto = new()
+            {
+                File = UserPicture,
+                UserId = "1a2s3d4f5g6h7j8k9l"
+            };
+
+            var res = await UploaderService.CreateFile(dto);
+            
+            GetResponseError(res);
+        }
+    }
+
+    private bool IsFormValid()
+    {
+        inputErrors.Clear();
+
+        if (!EnsureUserPicture())
+        {
+            inputErrors.Add($"Submit: Nenhuma foto do cliente para enviar.");
+        }
+
+        if (inputErrors.Count > 0)
+            return false;
+
+        return true;
+    }
+
+    private void GetResponseError(CreateUserNewFileDto res)
+    {
+        if (res != null && res.Response != null && res.Response.Status == ResponseStatus.ERROR)
+        {
+            inputErrors.Add($"{res.Response.Message}");
         }
     }
 
     private bool EnsureMaxAllowedFilesAmount(InputFileChangeEventArgs eventArgs) => 
-        eventArgs.FileCount > maxAllowedFilesAmount;
+        eventArgs.FileCount <= maxAllowedFilesAmount;
 
     private bool EnsureMaxFileSize(InputFileChangeEventArgs eventArgs) =>
-        eventArgs.File.Size > maxAllowedFileSize;
+        eventArgs.File.Size <= maxAllowedFileSize;
+    
+    private bool EnsureUserPicture() =>
+        UserPicture != null;
 }
 
 
@@ -61,12 +115,8 @@
  * - O nº de arquivos permitidos para envio e a quantia de mb's são limitados para evitar o envio
  *   arquivos infinitos ou de quantias de bytes infinitas pelo cliente.
  *
- *   - O cálculo do peso do envio é medido em bytes, e fica mais legível quando descrito em
- *     1024*1024*3 (1kb*1024*3 = 3MB)
- *
-    - O nº de arquivos obtidos para validar a quantia de bytes enviadas são o máximo de arquivos
-      permitidos para evitar rodar o código para inúmeros arquivos. E por isso a validação da
-      quantidade de arquivos enviadas é garantida anteriormente.
+ * - O cálculo do peso do envio é medido em bytes, e fica mais legível quando descrito em
+ *   <1kb> * 1024 * <mbs>
 *@
 
 
