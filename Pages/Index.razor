@@ -1,0 +1,15 @@
+﻿@page "/"
+
+<PageTitle>Uploader</PageTitle>
+
+<h1>Uploader</h1>
+
+<FilesInput errors="@inputErrors" />
+
+@if (inputErrors.Count > 0) {
+    <ErrorsList errors="@inputErrors" />
+}
+
+@code {
+    public List<string> inputErrors = new();
+}

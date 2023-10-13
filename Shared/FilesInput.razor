@@ -1,0 +1,91 @@
+﻿@inject IConfiguration config;
+
+<InputFile 
+    OnChange="@LoadFiles"
+    multiple 
+    accept=@allowedExtensions
+    class="form-control"
+/>
+
+@code {
+    [Parameter]
+    public List<string> Errors { get; set; } = new();
+
+    private string allowedExtensions = ".png,.jpg,.jpeg";
+    private int maxAllowedFilesAmount = 2;
+    private long maxAllowedFileSize = (1024 * 1024) / 2;
+    private bool isFormValid = false;
+    
+    private void LoadFiles(InputFileChangeEventArgs eventArgs)
+    {
+        VerifyErrors(eventArgs);
+        if (Errors.Count > 0)
+            isFormValid = true;
+    }
+    
+    private void VerifyErrors(InputFileChangeEventArgs eventArgs)
+    {
+        Errors.Clear();
+
+        if (EnsureMaxAllowedFilesAmount(eventArgs))
+        {
+            Errors.Add($"Máximo de arquivos permitidos para envio são {maxAllowedFilesAmount}.");
+            return;
+        }
+
+        var files = eventArgs.GetMultipleFiles(maxAllowedFilesAmount);
+        foreach (IBrowserFile file in files)
+        {
+            if (EnsureMaxFileSize(eventArgs))
+                Errors.Add($"O arquivo {file.Name} tem {file.Size}, mas o máximo permitido é de {maxAllowedFileSize}.");
+        }
+    }
+
+    private void SubmitFiles(InputFileChangeEventArgs eventArgs)
+    {
+        var files = eventArgs.GetMultipleFiles(maxAllowedFilesAmount);
+
+        foreach (var file in files)
+        {
+            CreateUserFileService(file: file, userName: "ribas");
+        }
+    }
+
+    private bool EnsureMaxAllowedFilesAmount(InputFileChangeEventArgs eventArgs) => 
+        eventArgs.FileCount > maxAllowedFilesAmount;
+
+    private bool EnsureMaxFileSize(InputFileChangeEventArgs eventArgs) =>
+        eventArgs.File.Size > maxAllowedFileSize;
+
+    private void CreateUserFileService(IBrowserFile file, string userName)
+    {
+        try
+        {
+            new FileHandler(file)
+                .StoreAt($"{config.GetValue<string>("StoragePath") ?? ""}/{userName}")
+                .LimitStoreTo((1024 * 1024) / 2)
+                .Create();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro: {ex.Message}");
+        }
+    }
+}
+
+
+@*
+    Notas:
+    *
+    - O nº de arquivos permitidos para envio e a quantia de mb's são limitados para evitar o envio
+      arquivos infinitos ou de quantias de bytes infinitas pelo cliente.
+    *
+    - O cálculo do peso do envio é medido em bytes, e fica mais legível quando descrito em
+      1024*1024*3 (1kb*1024*3 = 3MB)
+    *
+    - O nº de arquivos obtidos para validar a quantia de bytes enviadas são o máximo de arquivos
+      permitidos para evitar rodar o código para inúmeros arquivos. E por isso a validação da
+      quantidade de arquivos enviadas é garantida anteriormente.
+*@
+
+

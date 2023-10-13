@@ -1,0 +1,14 @@
+<div>
+    <p>Erros</p>
+    <ul class="text-danger">
+        @foreach (string error in Errors)
+        {
+            <li>@error</li>
+        }
+    </ul>
+</div>
+
+@code {
+    [Parameter]
+    public List<string> Errors { get; set; } = new();
+}
